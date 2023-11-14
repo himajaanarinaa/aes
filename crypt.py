@@ -1,110 +1,38 @@
-#!/usr/bin/python3
-import click
-import aes
+import time
+import timeit
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
-@click.command()
-@click.option(
-    '--encrypt/--decrypt',
-    '-e/-d',
-    default=True,
-)
-@click.option(
-    '--input_file',
-    '-i',
-    required=True,
-)
-@click.option(
-    '--output_file',
-    '-o',
-    required=True,
-)
-@click.option(
-    '--block-cipher-mode',
-    '-m',
-    type=click.Choice(["ECB", "CBC", "CTR"]),
-    default="CTR",
-)
-@click.option(
-    '--key-length',
-    '-l',
-    type=click.Choice(["128", "192", "256"]),
-    default="128",
-)
-def main(encrypt, input_file, output_file, block_cipher_mode, key_length):
+def measure_time(func):
+    start_time = time.perf_counter()
+    func()
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    print(f"Elapsed time: {elapsed_time:.6f} seconds")
 
-    if encrypt:
+def measure_cpu_cycles(func, number=1000000):
+    cpu_cycles = timeit.timeit(func, number=number)
+    print(f"CPU cycles: {cpu_cycles:.6f}")
 
-        key = aes.random_key_generator(int(key_length))
+def aes_encrypt():
+    key = b'0123456789abcdef'
+    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    encryptor = cipher.encryptor()
+    plaintext = b'This is a test message for AES encryption.'
+    ciphertext = encryptor.update(plaintext) + encryptor.finalize()
 
-        if key_length == "128":
-            AES = aes.AES(key, 128)
-
-        elif key_length == "192":
-            AES = aes.AES(key, 192)
-
-        elif key_length == "256":
-            AES = aes.AES(key, 256)
-
-        if block_cipher_mode == "ECB":
-            bcm = aes.ECB(AES)
-
-        elif block_cipher_mode == "CBC":
-            bcm = aes.CBC(AES, 16)
-
-        elif block_cipher_mode == "CTR":
-            bcm = aes.CTR(AES)
-
-        bcm.cipher(input_file, output_file)
-        print("Cipher Key:", key)
-        write_key(key)
-
-    else:
-        key = read_key()
-        if key == 1:
-            print("File key.txt doesn't exists! Can't decrypt without key")
-            exit(1)
-
-        key_length = len(key) * 4
-
-        if key_length == 128:
-            AES = aes.AES(key, 128)
-
-        elif key_length == 192:
-            AES = aes.AES(key, 192)
-
-        elif key_length == 256:
-            AES = aes.AES(key, 256)
-
-        else:
-            print("Key length not valid!")
-            exit(1)
-
-        if block_cipher_mode == "ECB":
-            bcm = aes.ECB(AES)
-
-        elif block_cipher_mode == "CBC":
-            bcm = aes.CBC(AES, 16)
-
-        elif block_cipher_mode == "CTR":
-            bcm = aes.CTR(AES)
-
-        bcm.decipher(input_file, output_file)
-
-def read_key():
-    try:
-        f = open("key.txt", "r")
-    except IOError:
-        return 1
-    
-    key = f.read()
-    f.close()
-    return key
-
-def write_key(key):
-    with open("key.txt", "w") as f:
-        f.write(key)
-        f.close()
+def aes_decrypt():
+    key = b'0123456789abcdef'
+    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
+    decryptor = cipher.decryptor()
+    ciphertext = b'\x8f\x1e+\xa0iP\r\x82\xcd\x9d\x1b\x8e\x0f\xda\xc3l'
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 
 if __name__ == "__main__":
-    # pylint: disable=no-value-for-parameter
-    main()
+    print("AES Encryption:")
+    measure_time(aes_encrypt)
+    measure_cpu_cycles(lambda: aes_encrypt(), number=100000)
+
+    print("\nAES Decryption:")
+    measure_time(aes_decrypt)
+    measure_cpu_cycles(lambda: aes_decrypt(), number=100000)
